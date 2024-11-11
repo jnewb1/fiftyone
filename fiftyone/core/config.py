@@ -348,11 +348,24 @@ class AppConfig(EnvConfig):
         self.grid_zoom = self.parse_int(
             d, "grid_zoom", env_var="FIFTYONE_APP_GRID_ZOOM", default=5
         )
+        # deprecate lightning threshold in favor of a timer-based approach
         self.lightning_threshold = self.parse_int(
             d,
             "lightning_threshold",
             env_var="FIFTYONE_APP_LIGHTNING_THRESHOLD",
             default=None,
+        )
+        self.enable_query_performance = self.parse_bool(
+            d,
+            "enable_query_performance",
+            env_var="FIFTYONE_APP_ENABLE_QUERY_PERFORMANCE",
+            default=True,
+        )
+        self.default_query_performance = self.parse_bool(
+            d,
+            "default_query_performance",
+            env_var="FIFTYONE_APP_DEFAULT_QUERY_PERFORMANCE",
+            default=False,
         )
         self.loop_videos = self.parse_bool(
             d,
@@ -419,12 +432,6 @@ class AppConfig(EnvConfig):
             "show_tooltip",
             env_var="FIFTYONE_APP_SHOW_TOOLTIP",
             default=True,
-        )
-        self.sidebar_mode = self.parse_string(
-            d,
-            "sidebar_mode",
-            env_var="FIFTYONE_APP_SIDEBAR_MODE",
-            default="fast",
         )
         self.theme = self.parse_string(
             d,
@@ -496,17 +503,6 @@ class AppConfig(EnvConfig):
                 default_color_by,
             )
             self.color_by = default_color_by
-
-        supported_sidebar_modes = {"all", "best", "fast", "disabled"}
-        default_sidebar_mode = "best"
-        if self.sidebar_mode not in supported_sidebar_modes:
-            logger.warning(
-                "Invalid sidebar_mode=%s. Must be one of %s. Defaulting to '%s'",
-                self.sidebar_mode,
-                supported_sidebar_modes,
-                default_sidebar_mode,
-            )
-            self.sidebar_mode = default_sidebar_mode
 
         supported_themes = {"browser", "dark", "light"}
         default_theme = "browser"

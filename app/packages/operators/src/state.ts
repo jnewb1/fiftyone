@@ -94,6 +94,9 @@ const globalContextSelector = selector({
     const viewName = get(fos.viewName);
     const extendedSelection = get(fos.extendedSelection);
     const groupSlice = get(fos.groupSlice);
+    const queryPerformance = typeof get(fos.queryPerformance) === "number";
+    const spaces = get(fos.sessionSpaces);
+    const workspaceName = spaces?._name;
 
     return {
       datasetName,
@@ -105,6 +108,9 @@ const globalContextSelector = selector({
       viewName,
       extendedSelection,
       groupSlice,
+      queryPerformance,
+      spaces,
+      workspaceName,
     };
   },
 });
@@ -145,6 +151,9 @@ const useExecutionContext = (operatorName, hooks = {}) => {
     viewName,
     extendedSelection,
     groupSlice,
+    queryPerformance,
+    spaces,
+    workspaceName,
   } = curCtx;
   const [analyticsInfo] = useAnalyticsInfo();
   const ctx = useMemo(() => {
@@ -162,6 +171,9 @@ const useExecutionContext = (operatorName, hooks = {}) => {
         extendedSelection,
         analyticsInfo,
         groupSlice,
+        queryPerformance,
+        spaces,
+        workspaceName,
       },
       hooks
     );
@@ -177,6 +189,9 @@ const useExecutionContext = (operatorName, hooks = {}) => {
     viewName,
     currentSample,
     groupSlice,
+    queryPerformance,
+    spaces,
+    workspaceName,
   ]);
 
   return ctx;
@@ -311,7 +326,8 @@ const useOperatorPromptSubmitOptions = (
   if (selectedOption) selectedOption.selected = true;
   const showWarning =
     executionOptions.orchestratorRegistrationEnabled &&
-    !hasAvailableOrchestators;
+    !hasAvailableOrchestators &&
+    !executionOptions.allowImmediateExecution;
   const warningMessage =
     "There are no available orchestrators to schedule this operation. Please contact your administrator to add an orchestrator.";
 
@@ -931,6 +947,19 @@ export function useOperatorExecutor(uri, handlers: any = {}) {
         setIsDelegated(result.delegated);
         handlers.onSuccess?.(result);
         callback?.(result);
+        if (result.error) {
+          const isAbortError =
+            result.error.name === "AbortError" ||
+            result.error instanceof DOMException;
+          if (!isAbortError) {
+            notify({
+              msg: result.errorMessage || `Operation failed: ${uri}`,
+              variant: "error",
+            });
+            console.error("Error executing operator", uri, result.errorMessage);
+            console.error(result.error);
+          }
+        }
       } catch (e) {
         callback?.(new OperatorResult(operator, null, ctx.executor, e, false));
         const isAbortError =

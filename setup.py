@@ -13,7 +13,7 @@ import re
 from setuptools import setup, find_packages
 
 
-VERSION = "1.0.2"
+VERSION = "1.2.0"
 
 
 def get_version():
@@ -46,8 +46,8 @@ INSTALL_REQUIRES = [
     # https://plotly.com/python/static-image-export/
     "kaleido!=0.2.1.post1",
     "matplotlib",
-    "mongoengine==0.24.2",
-    "motor>=2.5",
+    "mongoengine~=0.29.1",
+    "motor~=3.6.0",
     "numpy",
     "packaging",
     "pandas",
@@ -55,11 +55,12 @@ INSTALL_REQUIRES = [
     "plotly>=4.14",
     "pprintpp",
     "psutil",
-    "pymongo>=3.12,<4.9",
+    "pymongo~=4.9.2",
     "pytz",
     "PyYAML",
     "regex",
     "retrying",
+    "rtree",
     "scikit-learn",
     "scikit-image",
     "scipy",

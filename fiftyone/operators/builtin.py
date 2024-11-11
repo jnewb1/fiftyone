@@ -14,6 +14,8 @@ import fiftyone.core.media as fom
 import fiftyone.core.storage as fos
 import fiftyone.operators as foo
 import fiftyone.operators.types as types
+from fiftyone.core.odm.workspace import default_workspace_factory
+from fiftyone.operators.builtins.panels.model_evaluation import EvaluationPanel
 
 
 class EditFieldInfo(foo.Operator):
@@ -1939,28 +1941,6 @@ class SaveWorkspace(foo.Operator):
             ),
         )
 
-        # @todo infer this automatically from current App spaces
-        spaces_prop = inputs.oneof(
-            "spaces",
-            [types.String(), types.Object()],
-            default=None,
-            required=True,
-            label="Spaces",
-            description=(
-                "JSON description of the workspace to save: "
-                "`print(session.spaces.to_json(True))`"
-            ),
-            view=types.CodeView(),
-        )
-
-        spaces = ctx.params.get("spaces", None)
-        if spaces is not None:
-            try:
-                _parse_spaces(spaces)
-            except:
-                spaces_prop.invalid = True
-                spaces_prop.error_message = "Invalid workspace definition"
-
         name = ctx.params.get("name", None)
 
         if name in workspaces:
@@ -1979,7 +1959,11 @@ class SaveWorkspace(foo.Operator):
         color = ctx.params.get("color", None)
         spaces = ctx.params.get("spaces", None)
 
-        spaces = _parse_spaces(spaces)
+        curr_spaces = spaces is None
+        if curr_spaces:
+            spaces = ctx.spaces
+        else:
+            spaces = _parse_spaces(ctx, spaces)
 
         ctx.dataset.save_workspace(
             name,
@@ -1988,6 +1972,9 @@ class SaveWorkspace(foo.Operator):
             color=color,
             overwrite=True,
         )
+
+        if curr_spaces:
+            ctx.ops.set_spaces(name=name)
 
 
 class EditWorkspaceInfo(foo.Operator):
@@ -2014,8 +2001,13 @@ class EditWorkspaceInfo(foo.Operator):
         description = ctx.params.get("description", None)
         color = ctx.params.get("color", None)
 
+        curr_name = ctx.spaces.name
         info = dict(name=new_name, description=description, color=color)
+
         ctx.dataset.update_workspace_info(name, info)
+
+        if curr_name is not None and curr_name != new_name:
+            ctx.ops.set_spaces(name=new_name)
 
 
 def _edit_workspace_info_inputs(ctx, inputs):
@@ -2034,10 +2026,10 @@ def _edit_workspace_info_inputs(ctx, inputs):
     for key in workspaces:
         workspace_selector.add_choice(key, label=key)
 
-    # @todo default to current workspace name, if one is currently open
     inputs.enum(
         "name",
         workspace_selector.values(),
+        default=ctx.spaces.name,
         required=True,
         label="Workspace",
         description="The workspace to edit",
@@ -2106,7 +2098,7 @@ class DeleteWorkspace(foo.Operator):
             inputs.enum(
                 "name",
                 workspace_selector.values(),
-                default=None,
+                default=ctx.spaces.name,
                 required=True,
                 label="Workspace",
                 description="The workspace to delete",
@@ -2127,7 +2119,11 @@ class DeleteWorkspace(foo.Operator):
     def execute(self, ctx):
         name = ctx.params["name"]
 
+        curr_spaces = name == ctx.spaces.name
         ctx.dataset.delete_workspace(name)
+
+        if curr_spaces:
+            ctx.ops.set_spaces(spaces=default_workspace_factory())
 
 
 class SyncLastModifiedAt(foo.Operator):
@@ -2292,10 +2288,11 @@ def _get_non_default_frame_fields(dataset):
     return schema
 
 
-def _parse_spaces(spaces):
-    if isinstance(spaces, dict):
-        return fo.Space.from_dict(spaces)
-    return fo.Space.from_json(spaces)
+def _parse_spaces(ctx, spaces):
+    if isinstance(spaces, str):
+        spaces = json.loads(spaces)
+
+    return fo.Space.from_dict(spaces)
 
 
 BUILTIN_OPERATORS = [
@@ -2332,3 +2329,5 @@ BUILTIN_OPERATORS = [
     SyncLastModifiedAt(_builtin=True),
     ListFiles(_builtin=True),
 ]
+
+BUILTIN_PANELS = [EvaluationPanel(_builtin=True)]

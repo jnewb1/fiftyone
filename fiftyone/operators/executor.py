@@ -611,6 +611,19 @@ class ExecutionContext(object):
         return has_stages or has_filters or has_extended
 
     @property
+    def spaces(self):
+        """The current spaces layout in the FiftyOne App."""
+        workspace_name = self.request_params.get("workspace_name", None)
+        if workspace_name is not None:
+            return self.dataset.load_workspace(workspace_name)
+
+        spaces_dict = self.request_params.get("spaces", None)
+        if spaces_dict is not None:
+            return fo.Space.from_dict(spaces_dict)
+
+        return None
+
+    @property
     def selected(self):
         """The list of selected sample IDs (if any)."""
         return self.request_params.get("selected", [])
@@ -720,12 +733,18 @@ class ExecutionContext(object):
         """The current group slice of the view (if any)."""
         return self.request_params.get("group_slice", None)
 
+    @property
+    def query_performance(self):
+        """Whether query performance is enabled."""
+        return self.request_params.get("query_performance", None)
+
     def prompt(
         self,
         operator_uri,
         params=None,
         on_success=None,
         on_error=None,
+        skip_prompt=False,
     ):
         """Prompts the user to execute the operator with the given URI.
 
@@ -735,6 +754,7 @@ class ExecutionContext(object):
             on_success (None): a callback to invoke if the user successfully
                 executes the operator
             on_error (None): a callback to invoke if the execution fails
+            skip_prompt (False): whether to skip the prompt
 
         Returns:
             a :class:`fiftyone.operators.message.GeneratedMessage` containing
@@ -749,6 +769,7 @@ class ExecutionContext(object):
                     "params": params,
                     "on_success": on_success,
                     "on_error": on_error,
+                    "skip_prompt": skip_prompt,
                 }
             ),
         )
@@ -853,6 +874,20 @@ class ExecutionContext(object):
             )
         else:
             self.log(f"Progress: {progress} - {label}")
+
+    # TODO resolve circular import so this can have a type
+    def create_store(self, store_name):
+        """Creates a new store with the specified name.
+
+        Args:
+            store_name: the name of the store
+
+        Returns:
+            a :class:`fiftyone.operators.store.ExecutionStore`
+        """
+        from fiftyone.operators.store import ExecutionStore
+
+        return ExecutionStore.create(store_name)
 
     def serialize(self):
         """Serializes the execution context.
